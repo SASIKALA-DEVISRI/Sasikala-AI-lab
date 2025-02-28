@@ -1,0 +1,116 @@
+import chess
+import chess.svg
+import os
+import platform
+
+def display_board(board, filename='chessboard.svg'):
+    """Generates an SVG representation of the chessboard and saves it to a file."""
+    svg_content = chess.svg.board(board=board)
+    with open(filename, 'w') as f:
+        f.write(svg_content)
+    return filename
+
+def open_svg_file(filename):
+    """Opens the SVG file with the default viewer depending on the OS."""
+    system = platform.system()
+    if system == 'Windows':
+        os.system(f"start {filename}")
+    elif system == 'Linux':
+        os.system(f"xdg-open {filename}")
+    elif system == 'Darwin':  # macOS
+        os.system(f"open {filename}")
+
+def player_move(board):
+    """Gets a valid move from the player in UCI format (e.g., 'e2e4')."""
+    while True:
+        move_uci = input("Enter your move (in UCI format, e.g., 'e2e4'): ").strip()
+        try:
+            move = chess.Move.from_uci(move_uci)
+            if move in board.legal_moves:
+                return move
+            else:
+                print("Invalid move. Please enter a legal move.")
+        except ValueError:
+            print("Invalid input format. Please enter a move in UCI notation (e.g., 'e2e4').")
+
+def ai_move(board, depth=2):
+    """Uses Minimax to determine the best move for the AI."""
+    best_move = None
+    best_eval = float('-inf')
+
+    for move in board.legal_moves:
+        board.push(move)
+        eval_score = -minimax(board, depth-1, False)
+        board.pop()
+
+        if eval_score > best_eval:
+            best_eval = eval_score
+            best_move = move
+
+    return best_move
+
+def minimax(board, depth, maximizing_player):
+    """Minimax algorithm to evaluate the best move for the AI."""
+    if depth == 0 or board.is_game_over():
+        return evaluate_board(board)
+
+    if maximizing_player:
+        max_eval = float('-inf')
+        for move in board.legal_moves:
+            board.push(move)
+            eval_score = minimax(board, depth-1, False)
+            board.pop()
+            max_eval = max(max_eval, eval_score)
+        return max_eval
+    else:
+        min_eval = float('inf')
+        for move in board.legal_moves:
+            board.push(move)
+            eval_score = minimax(board, depth-1, True)
+            board.pop()
+            min_eval = min(min_eval, eval_score)
+        return min_eval
+
+def evaluate_board(board):
+    """Simple evaluation function based on material balance."""
+    evaluation = 0
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece is not None:
+            evaluation += piece_value(piece)
+    return evaluation
+
+def piece_value(piece):
+    """Assigns numerical values to pieces for board evaluation."""
+    values = {
+        chess.PAWN: 1,
+        chess.KNIGHT: 3,
+        chess.BISHOP: 3,
+        chess.ROOK: 5,
+        chess.QUEEN: 9,
+        chess.KING: 1000
+    }
+    return values.get(piece.piece_type, 0) * (1 if piece.color == chess.WHITE else -1)
+
+def main():
+    """Main function to run the chess game."""
+    board = chess.Board()
+
+    while not board.is_game_over():
+        svg_file = display_board(board)
+        open_svg_file(svg_file)
+
+        move = player_move(board)
+        board.push(move)
+
+        if not board.is_game_over():
+            ai_move_result = ai_move(board)
+            board.push(ai_move_result)
+    
+    svg_file = display_board(board)
+    open_svg_file(svg_file)
+    
+    print("Game over. Result:", board.result())
+
+if __name__ == "__main__":
+    main()
